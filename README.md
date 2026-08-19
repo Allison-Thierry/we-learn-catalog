@@ -10,7 +10,7 @@ The site reads three tabs from the professional Google Sheet during its GitHub A
 - `WeLearn Updates`
 - `Translation Log`
 
-Only the fields used by the public catalog are included in the generated site. The Google Sheet itself remains private.
+Only the fields used by the public catalog are included in the generated site. The dedicated public description in column BB is used instead of the internal description; course objectives are indexed for search but are not displayed in lesson details. The Google Sheet itself remains private.
 
 ## One-time GitHub setup
 

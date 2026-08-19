@@ -72,6 +72,7 @@ const courses = courseRows.slice(1).flatMap((row, index) => {
     category: String(row[41] ?? ""),
     audience: String(row[42] ?? ""),
     publicDescription: String(row[53] ?? ""),
+    objectiveSearchText: String(row[47] ?? ""),
     duration: String(row[46] ?? ""),
     quiz: truthy(row[49]),
     certificate: truthy(row[50]),

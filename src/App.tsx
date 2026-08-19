@@ -7,7 +7,7 @@ type PageName = "home" | "catalog" | "country" | "faq";
 type Course = {
   key: string; row: number; date: string; title: string; globalPackage: boolean;
   languages: Record<string, boolean>; countries: Record<string, boolean>;
-  category: string; audience: string; publicDescription: string;
+  category: string; audience: string; publicDescription: string; objectiveSearchText: string;
   duration: string; quiz: boolean; certificate: boolean;
   prerequisite: string; series: string; companionAssignment: boolean;
   catalogGroup?: string;
@@ -146,7 +146,7 @@ function searchableText(course: Course) {
     RTS: ["rts"], "AM / DM": ["am", "dm", "manager", "managers"], Sales: ["sales"],
     "LMS roles": ["lms", "lms role", "lms roles"], "All Employees": ["employee", "employees", "all employees"],
   }[role] || []));
-  return normalize([course.title, textFor(course), course.category, course.audience, courseFamily(course), localMarketLabel(course), ...roleAliases, ...langs, ...markets].join(" "));
+  return normalize([course.title, textFor(course), course.objectiveSearchText, course.category, course.audience, courseFamily(course), localMarketLabel(course), ...roleAliases, ...langs, ...markets].join(" "));
 }
 function matchesFilters(course: Course, query: string, filters: Filters) {
   const q = normalize(query.trim());
@@ -333,8 +333,8 @@ export default function Home() {
       </>}
 
       {page === "catalog" && <section className="section-wrap catalog-page">
-        <PageHeading title="Course Catalog" copy="Search every published lesson by title, description, audience, language or country." />
-        <div className="catalog-toolbar"><label className="catalog-search"><Icon name="search" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search titles, descriptions, roles and translations" /><span>{filteredCourses.length} result{filteredCourses.length !== 1 ? "s" : ""}</span></label><button className={`filter-toggle ${filtersOpen ? "active" : ""}`} onClick={() => setFiltersOpen(!filtersOpen)}><Icon name="filter" />Filters {activeFilters > 0 && <b>{activeFilters}</b>}</button></div>
+        <PageHeading title="Course Catalog" copy="Search every published lesson by title, description, objective, audience, language or country." />
+        <div className="catalog-toolbar"><label className="catalog-search"><Icon name="search" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search titles, descriptions, objectives, roles and translations" /><span>{filteredCourses.length} result{filteredCourses.length !== 1 ? "s" : ""}</span></label><button className={`filter-toggle ${filtersOpen ? "active" : ""}`} onClick={() => setFiltersOpen(!filtersOpen)}><Icon name="filter" />Filters {activeFilters > 0 && <b>{activeFilters}</b>}</button></div>
         {filtersOpen && <FilterPanel filters={filters} setFilters={setFilters} categories={categories} languages={languages} />}
         {(query || activeFilters > 0) && <div className="results-summary"><span><strong>{filteredCourses.length}</strong> matching lessons</span><button onClick={clearCatalogFilters}>Reset search and filters</button></div>}
         {filteredCourses.length ? <><CourseList items={filteredCourses} limit={visibleCount} onOpen={setSelectedCourse} />{visibleCount < filteredCourses.length && <button className="load-more" onClick={() => setVisibleCount(visibleCount + 20)}>Show 20 more <span>{filteredCourses.length - visibleCount} remaining</span></button>}</> : <div className="empty-state"><span>⌕</span><h2>No lesson found</h2><p>Try a broader keyword or clear one of the filters.</p><button onClick={clearCatalogFilters}>Clear all filters</button></div>}

@@ -222,15 +222,25 @@ button { color: inherit; }
 .faq-item > button b { color: var(--navy); font-size: 21px; text-align: center; }
 .faq-item p { margin: -3px 39px 22px 53px; color: #5f6c75; font-size: 13px; line-height: 1.65; }
 .faq-item.open { background: white; }
-.contact-card { position: sticky; top: 92px; display: flex; flex-direction: column; align-items: flex-start; overflow: hidden; padding: 30px; border-radius: 15px; background: var(--navy); color: white; box-shadow: var(--shadow); }
-.contact-card::after { content: "?"; position: absolute; right: -8px; top: -30px; color: rgba(255,255,255,.05); font-size: 170px; font-weight: 800; }
-.contact-mark { width: 50px; height: 50px; display: grid; place-items: center; margin-bottom: 22px; border-radius: 13px; background: var(--red); font-size: 25px; font-weight: 800; }
-.contact-card small { color: #f0b3bf; font-size: 9px; font-weight: 800; letter-spacing: 1px; }
-.contact-card h2 { margin: 6px 0 11px; font-size: 27px; }
-.contact-card p { position: relative; z-index: 1; margin: 0 0 22px; color: #d5e0e4; font-size: 13px; line-height: 1.55; }
-.contact-card a { position: relative; z-index: 1; display: flex; align-items: center; gap: 9px; padding: 12px 16px; border-radius: 8px; background: white; color: var(--navy); font-size: 12px; font-weight: 800; text-decoration: none; }
-.contact-card a .icon { width: 17px; }
-.contact-card em { margin-top: 18px; color: #9eb5bf; font-size: 10px; font-style: normal; }
+.faq-love-answer a { color: var(--navy); font-weight: 800; }
+.contact-stack { position: sticky; top: 92px; display: flex; flex-direction: column; gap: 13px; }
+.support-card { display: grid; grid-template-columns: 42px 1fr; column-gap: 14px; align-items: start; padding: 20px; border: 1px solid #d7dde0; border-radius: 13px; background: white; box-shadow: 0 5px 17px rgba(18,37,46,.07); }
+.support-icon { width: 42px; height: 42px; grid-row: 1/5; display: grid; place-items: center; border-radius: 10px; background: #e6eef1; color: var(--navy); }
+.support-icon .icon { width: 21px; }
+.support-card small { color: #7c878e; font-size: 8px; font-weight: 900; letter-spacing: .8px; }
+.support-card h2 { margin: 4px 0 7px; color: var(--ink); font-size: 17px; }
+.support-card p { margin: 0 0 13px; color: #65727a; font-size: 11px; line-height: 1.5; }
+.support-card a { width: max-content; display: flex; align-items: center; gap: 7px; padding: 8px 11px; border-radius: 7px; background: var(--navy); color: white; font-size: 10px; font-weight: 800; text-decoration: none; }
+.support-card a .icon { width: 14px; }
+.support-card a > span { font-size: 13px; }
+.technical-support { border: 0; background: var(--navy); }
+.technical-support .support-icon { background: var(--red); color: white; }
+.technical-support small { color: #efb5c0; }
+.technical-support h2 { color: white; }
+.technical-support p { color: #c8d7dd; }
+.technical-support a { background: white; color: var(--navy); }
+.request-support .support-icon { background: #fff1c8; color: #7e5c00; }
+.allison-support .support-icon { background: #fbe5e9; color: var(--red); }
 
 footer { min-height: 68px; display: flex; align-items: center; gap: 22px; margin-left: 70px; padding: 0 35px; background: var(--navy); color: white; }
 footer > span { font-size: 20px; font-weight: 300; }
@@ -294,7 +304,7 @@ footer small { margin-left: auto; color: #c2d1d6; }
   .paths, .country-columns { grid-template-columns: 1fr; }
   .stat-grid { grid-template-columns: 1fr 1fr; }
   .faq-layout { grid-template-columns: 1fr; }
-  .contact-card { position: relative; top: auto; }
+  .contact-stack { position: relative; top: auto; }
   .course-modal { grid-template-columns: 170px 1fr; }
   .modal-content { padding: 34px 28px 29px; }
 }

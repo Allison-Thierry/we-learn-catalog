@@ -48,15 +48,6 @@ const countryRequirements: Record<string, string[]> = {
   Israel: ["Hebrew & Russian"],
 };
 const audienceOptions = ["All Employees", "Auditors", "Supervisors / Flow Leaders", "RTS", "AM / DM", "Sales", "LMS roles"];
-const suitableFor: Record<string, string[]> = {
-  "All Employees": ["All Employees"],
-  Auditors: ["All Employees", "Auditors"],
-  "Supervisors / Flow Leaders": ["All Employees", "Auditors", "Supervisors / Flow Leaders"],
-  RTS: ["All Employees", "Auditors", "Supervisors / Flow Leaders", "RTS"],
-  "AM / DM": ["All Employees", "Auditors", "Supervisors / Flow Leaders", "RTS", "AM / DM"],
-  Sales: ["All Employees", "Sales"],
-  "LMS roles": ["All Employees", "LMS roles"],
-};
 const categoryStyle: Record<string, { icon: string; tone: string }> = {
   Accuracy: { icon: "◎", tone: "blue" }, "Customer Certifications": { icon: "✦", tone: "gold" },
   Efficiency: { icon: "↗", tone: "teal" }, "Leadership & Management": { icon: "◇", tone: "violet" },
@@ -155,7 +146,7 @@ function matchesFilters(course: Course, query: string, filters: Filters) {
   return (!q || searchableText(course).includes(q))
     && (!filters.families.length || filters.families.includes(courseFamily(course)))
     && (!filters.categories.length || filters.categories.includes(course.category))
-    && (!filters.audiences.length || filters.audiences.some((role) => targets.some((target) => suitableFor[role]?.includes(target))))
+    && (!filters.audiences.length || filters.audiences.some((role) => targets.includes(role)))
     && (!filters.languages.length || filters.languages.some((language) => course.languages[language]))
     && (!filters.countries.length || filters.countries.some((country) => course.countries[country]));
 }

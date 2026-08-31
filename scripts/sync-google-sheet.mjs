@@ -1,5 +1,5 @@
 import { createSign } from "node:crypto";
-import { writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 
 const spreadsheetId = "1NpAqZxoRGMU4r9iZI4L8-fYv_ELm3ugCQ_CORqShwn4";
 const secret = process.env.GOOGLE_SERVICE_ACCOUNT_JSON?.trim();
@@ -94,8 +94,92 @@ const catalog = {
   translations,
 };
 
-await writeFile(
-  new URL("../public/catalog.json", import.meta.url),
-  `${JSON.stringify(catalog, null, 2)}\n`,
-);
+const escapeHtml = (value) => String(value ?? "")
+  .replaceAll("&", "&amp;")
+  .replaceAll("<", "&lt;")
+  .replaceAll(">", "&gt;")
+  .replaceAll('"', "&quot;")
+  .replaceAll("'", "&#39;");
+const listItems = (values, emptyMessage) => values.length
+  ? `<ul>${values.map((value) => `<li>${escapeHtml(value)}</li>`).join("")}</ul>`
+  : `<p>${escapeHtml(emptyMessage)}</p>`;
+const catalogGroupLabel = (value) => ({
+  gp: "Global Package",
+  sales: "Sales content",
+  local: "Local content",
+  specific: "Specific content",
+}[String(value ?? "").trim().toLowerCase()] || String(value ?? "Local content"));
+const languageNames = {
+  GB: "English", IT: "Italian", DE: "German", PL: "Polish", FR: "French",
+  ES: "Spanish", PT: "Portuguese", CZ: "Czech", IL: "Hebrew & Russian",
+};
+const activeUpdates = updates.filter((update) => update.show);
+const courseArticles = courses.map((course, index) => {
+  const availableLanguages = Object.entries(course.languages).filter(([, available]) => available).map(([name]) => name);
+  const assignedCountries = Object.entries(course.countries).filter(([, assigned]) => assigned).map(([name]) => name);
+  const objectives = String(course.objectiveSearchText ?? "").split(/\r?\n+/).map((item) => item.trim()).filter(Boolean);
+  const features = [course.quiz && "Quiz", course.certificate && "Certificate", course.series, course.companionAssignment && "Practical follow-up assignment"].filter(Boolean);
+  const duration = /^\d+(?:\.\d+)?$/.test(String(course.duration).trim()) ? `${course.duration} minutes` : String(course.duration || "Not specified");
+  return `<article class="course" id="course-${index + 1}">
+  <h3>${escapeHtml(course.title)}</h3>
+  <dl>
+    <dt>Catalog group</dt><dd>${escapeHtml(catalogGroupLabel(course.catalogGroup))}</dd>
+    <dt>Category</dt><dd>${escapeHtml(course.category || "Not specified")}</dd>
+    <dt>Target audience</dt><dd>${escapeHtml(course.audience || "Not specified")}</dd>
+    <dt>Publication date</dt><dd>${escapeHtml(course.date || "Not specified")}</dd>
+    <dt>Estimated duration</dt><dd>${escapeHtml(duration)}</dd>
+    <dt>Features</dt><dd>${features.length ? escapeHtml(features.join(", ")) : "Standard lesson"}</dd>
+    <dt>Prerequisite</dt><dd>${escapeHtml(course.prerequisite || "None recorded")}</dd>
+  </dl>
+  <section><h4>Description</h4><p>${escapeHtml(course.publicDescription || "No public description available.")}</p></section>
+  <section><h4>Learning objectives</h4>${listItems(objectives, "No learning objectives recorded.")}</section>
+  <section><h4>Available languages</h4>${listItems(availableLanguages, "No available language recorded.")}</section>
+  <section><h4>Assigned countries</h4>${listItems(assignedCountries, "No country assignment recorded.")}</section>
+</article>`;
+}).join("\n");
+const updateArticles = activeUpdates.length ? activeUpdates.map((update) => `<article>
+  <h3>${escapeHtml(update.title || "WeLearn update")}</h3>
+  <p><strong>Date:</strong> ${escapeHtml(update.date || "Not specified")}</p>
+  <p>${escapeHtml(update.message)}</p>
+</article>`).join("\n") : "<p>No current WeLearn update.</p>";
+const translationItems = translations.length ? `<ul>${translations.map((event) => `<li><strong>${escapeHtml(event.title)}</strong> — ${escapeHtml(languageNames[event.language] || event.language)} — ${escapeHtml(event.date)}</li>`).join("")}</ul>` : "<p>No translation event recorded.</p>";
+const knowledgeHtml = `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Static, automatically generated knowledge source for the public WeLearn course catalog.">
+  <meta name="generated-at" content="${escapeHtml(catalog.generatedAt)}">
+  <link rel="canonical" href="https://allison-thierry.github.io/we-learn-catalog/knowledge/catalog.html">
+  <title>WeLearn Course Catalog — Knowledge Source</title>
+  <style>
+    body{max-width:960px;margin:0 auto;padding:32px;font:16px/1.55 Arial,sans-serif;color:#20252a;background:#fff}header{border-bottom:3px solid #c62032;margin-bottom:32px}h1,h2,h3,h4{line-height:1.2}h1{margin-bottom:8px}.summary,.course{border:1px solid #d9dee1;border-radius:8px;padding:20px;margin:20px 0}.course{break-inside:avoid}.course>h3{margin-top:0;color:#9e1725}dl{display:grid;grid-template-columns:minmax(150px,220px) 1fr;gap:6px 16px}dt{font-weight:700}dd{margin:0}ul{margin-top:6px}@media(max-width:640px){body{padding:20px}dl{grid-template-columns:1fr}dd{margin-bottom:8px}}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>WeLearn Course Catalog</h1>
+    <p>This static page is generated automatically from the public fields of the WeLearn catalog source. Each course record below is complete and independent.</p>
+    <dl class="summary">
+      <dt>Generated at</dt><dd><time datetime="${escapeHtml(catalog.generatedAt)}">${escapeHtml(catalog.generatedAt)}</time></dd>
+      <dt>Published courses</dt><dd>${courses.length}</dd>
+      <dt>Active updates</dt><dd>${activeUpdates.length}</dd>
+      <dt>Translation events</dt><dd>${translations.length}</dd>
+    </dl>
+  </header>
+  <main>
+    <section id="welearn-updates"><h2>Current WeLearn updates</h2>${updateArticles}</section>
+    <section id="translation-log"><h2>Translation log</h2>${translationItems}</section>
+    <section id="published-courses"><h2>Published courses</h2>${courseArticles}</section>
+  </main>
+</body>
+</html>
+`;
+
+const knowledgeDirectory = new URL("../public/knowledge/", import.meta.url);
+await mkdir(knowledgeDirectory, { recursive: true });
+await Promise.all([
+  writeFile(new URL("../public/catalog.json", import.meta.url), `${JSON.stringify(catalog, null, 2)}\n`),
+  writeFile(new URL("catalog.html", knowledgeDirectory), knowledgeHtml),
+]);
 console.log(`Synced ${courses.length} courses, ${updates.length} updates and ${translations.length} translation events.`);

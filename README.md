@@ -12,11 +12,13 @@ The site reads three tabs from the professional Google Sheet during its GitHub A
 
 Only the fields used by the public catalog are included. The dedicated public description in column BB is used instead of the internal description; course objectives are indexed for search but are not displayed in lesson details. The Google Sheet itself remains private.
 
-The build publishes the resulting data as a single machine-readable file at:
+The build publishes the resulting data in two complementary formats:
 
 `https://allison-thierry.github.io/we-learn-catalog/catalog.json`
 
-The interactive catalog reads this same file, so the website and any external knowledge source use one automatically generated dataset.
+`https://allison-thierry.github.io/we-learn-catalog/knowledge/catalog.html`
+
+The interactive catalog reads the JSON file. The static HTML page contains the same useful public course information directly in the document, without React or JavaScript rendering, for AI and Knowledge ingestion. Both files are generated automatically from the same dataset.
 
 ## One-time GitHub setup
 
@@ -27,7 +29,7 @@ The interactive catalog reads this same file, so the website and any external kn
 5. Share the source Google Sheet with that service account email as **Viewer**.
 6. Open **Actions → Deploy WeLearn Catalog → Run workflow**.
 
-No real Google Sheet data is stored in the public repository history: the committed `public/catalog.json` is an empty schema placeholder that is populated only during deployment. The secret must be configured before the first successful deployment. The workflow refreshes the catalog every six hours and whenever it is run manually.
+No real Google Sheet data is stored in the public repository history: the committed `public/catalog.json` is an empty schema placeholder, and the Knowledge HTML page is created only during deployment. The secret must be configured before the first successful deployment. The workflow refreshes both public data formats every six hours and whenever it is run manually.
 
 ## Local development
 

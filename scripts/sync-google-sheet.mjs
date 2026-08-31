@@ -176,10 +176,98 @@ const knowledgeHtml = `<!doctype html>
 </html>
 `;
 
+const textSeparator = "=".repeat(50);
+const textList = (values, emptyMessage) => values.length
+  ? values.map((value) => `- ${String(value)}`).join("\n")
+  : emptyMessage;
+const targetAudienceText = (value) => {
+  const audiences = String(value ?? "").split(",").map((item) => item.trim()).filter(Boolean);
+  if (!audiences.length) return "Target audience:\nNot specified";
+  if (audiences.length === 1) return `Target audience: ${audiences[0]}`;
+  return `Target audience:\n${textList(audiences, "Not specified")}`;
+};
+const courseRecords = courses.map((course) => {
+  const availableLanguages = Object.entries(course.languages).filter(([, available]) => available).map(([name]) => name);
+  const assignedCountries = Object.entries(course.countries).filter(([, assigned]) => assigned).map(([name]) => name);
+  const objectives = String(course.objectiveSearchText ?? "").split(/\r?\n+/).map((item) => item.trim()).filter(Boolean);
+  const features = [course.quiz && "Quiz", course.certificate && "Certificate", course.series, course.companionAssignment && "Practical follow-up assignment"].filter(Boolean);
+  const duration = /^\d+(?:\.\d+)?$/.test(String(course.duration).trim()) ? `${course.duration} minutes` : String(course.duration || "Not specified");
+  return `${textSeparator}
+COURSE RECORD
+${textSeparator}
+
+COURSE: ${String(course.title)}
+
+Catalog group: ${catalogGroupLabel(course.catalogGroup)}
+Category: ${String(course.category || "Not specified")}
+${targetAudienceText(course.audience)}
+Publication date: ${String(course.date || "Not specified")}
+Estimated duration: ${duration}
+Features:
+${textList(features, "No additional features recorded.")}
+
+Prerequisite:
+${String(course.prerequisite || "None recorded")}
+
+Description:
+${String(course.publicDescription || "No public description available.")}
+
+Learning objectives:
+${textList(objectives, "No learning objectives recorded.")}
+
+Available languages:
+${textList(availableLanguages, "No available language recorded.")}
+
+Assigned countries:
+${textList(assignedCountries, "No country assignment recorded.")}`;
+}).join("\n\n");
+const updateRecords = activeUpdates.length ? activeUpdates.map((update) => `UPDATE: ${String(update.title || "WeLearn update")}
+Date: ${String(update.date || "Not specified")}
+Message:
+${String(update.message || "No update message recorded.")}`).join("\n\n") : "No current WeLearn update.";
+const translationRecords = translations.length ? translations.map((event) => `TRANSLATION EVENT
+Course: ${String(event.title)}
+Language: ${String(languageNames[event.language] || event.language)}
+Date: ${String(event.date)}`).join("\n\n") : "No translation event recorded.";
+const knowledgeText = `WELEARN COURSE CATALOG — AI KNOWLEDGE SOURCE
+
+Generated at: ${catalog.generatedAt}
+Published courses: ${courses.length}
+
+Purpose:
+This file contains the current published WeLearn course catalogue.
+Each COURSE RECORD is complete and independent.
+Course titles and metadata must be treated exactly as recorded.
+Do not infer course availability, audience, language or prerequisites beyond the information contained in each record.
+
+${textSeparator}
+CURRENT WELEARN UPDATES
+${textSeparator}
+
+${updateRecords}
+
+${textSeparator}
+RECENT TRANSLATION EVENTS
+${textSeparator}
+
+${translationRecords}
+
+${textSeparator}
+PUBLISHED COURSE RECORDS
+${textSeparator}
+
+${courseRecords}
+
+${textSeparator}
+END OF WELEARN COURSE CATALOG
+${textSeparator}
+`;
+
 const knowledgeDirectory = new URL("../public/knowledge/", import.meta.url);
 await mkdir(knowledgeDirectory, { recursive: true });
 await Promise.all([
   writeFile(new URL("../public/catalog.json", import.meta.url), `${JSON.stringify(catalog, null, 2)}\n`),
   writeFile(new URL("catalog.html", knowledgeDirectory), knowledgeHtml),
+  writeFile(new URL("../public/welearn-knowledge.txt", import.meta.url), knowledgeText, "utf8"),
 ]);
 console.log(`Synced ${courses.length} courses, ${updates.length} updates and ${translations.length} translation events.`);

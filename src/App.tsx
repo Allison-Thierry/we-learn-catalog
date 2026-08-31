@@ -1,11 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import courseData from "./data/courses.json";
-import updateData from "./data/updates.json";
-import translationData from "./data/translations.json";
 
 type PageName = "home" | "catalog" | "country" | "faq";
 type Course = {
-  key: string; row: number; date: string; title: string; globalPackage: boolean;
+  key: string; date: string; title: string; globalPackage: boolean;
   languages: Record<string, boolean>; countries: Record<string, boolean>;
   category: string; audience: string; publicDescription: string; objectiveSearchText: string;
   duration: string; quiz: boolean; certificate: boolean;
@@ -18,10 +15,15 @@ type Filters = {
 };
 type CatalogUpdate = { show: boolean; date: string; title: string; message: string };
 type TranslationEvent = { date: string; title: string; language: string };
+type CatalogPayload = {
+  schemaVersion: number;
+  generatedAt: string;
+  courses: Course[];
+  updates: CatalogUpdate[];
+  translations: TranslationEvent[];
+};
 
-const courses = courseData as Course[];
-const updates = updateData as CatalogUpdate[];
-const translationEvents = translationData as TranslationEvent[];
+const emptyCatalog: CatalogPayload = { schemaVersion: 1, generatedAt: "", courses: [], updates: [], translations: [] };
 const TODAY = new Date();
 const languageNames: Record<string, string> = {
   GB: "English", IT: "Italian", DE: "German", PL: "Polish", FR: "French",
@@ -231,6 +233,8 @@ function Donut({ value, label }: { value: number; label: string }) {
 }
 
 export default function Home() {
+  const [catalogData, setCatalogData] = useState<CatalogPayload>(emptyCatalog);
+  const [dataState, setDataState] = useState<"loading" | "ready" | "error">("loading");
   const [page, setPage] = useState<PageName>("home");
   const [query, setQuery] = useState("");
   const [filters, setFilters] = useState<Filters>(emptyFilters);
@@ -245,11 +249,35 @@ export default function Home() {
   const [countryFocus, setCountryFocus] = useState<"overview" | "global-unassigned" | "worth-checking">("overview");
   const [focusQuery, setFocusQuery] = useState("");
   const [openFaq, setOpenFaq] = useState(0);
+  const { courses, updates, translations: translationEvents } = catalogData;
 
-  const categories = useMemo(() => [...new Set(courses.map((course) => course.category))].sort(), []);
-  const languages = useMemo(() => Object.keys(courses[0]?.languages || {}), []);
-  const latestCourses = useMemo(() => [...courses].sort((a, b) => parseDate(b.date).getTime() - parseDate(a.date).getTime()).slice(0, 5), []);
-  const currentUpdate = useMemo(() => [...updates].filter((item) => item.show && item.title).sort((a, b) => parseDate(b.date).getTime() - parseDate(a.date).getTime())[0], []);
+  useEffect(() => {
+    let active = true;
+    async function loadCatalog() {
+      try {
+        const response = await fetch("./catalog.json", { cache: "no-store" });
+        if (!response.ok) throw new Error(`Catalog request failed (${response.status}).`);
+        const payload = await response.json() as CatalogPayload;
+        if (!Array.isArray(payload.courses) || !Array.isArray(payload.updates) || !Array.isArray(payload.translations)) {
+          throw new Error("Catalog data is incomplete.");
+        }
+        if (active) {
+          setCatalogData(payload);
+          setDataState("ready");
+        }
+      } catch (error) {
+        console.error(error);
+        if (active) setDataState("error");
+      }
+    }
+    loadCatalog();
+    return () => { active = false; };
+  }, []);
+
+  const categories = useMemo(() => [...new Set(courses.map((course) => course.category))].sort(), [courses]);
+  const languages = useMemo(() => Object.keys(courses[0]?.languages || {}), [courses]);
+  const latestCourses = useMemo(() => [...courses].sort((a, b) => parseDate(b.date).getTime() - parseDate(a.date).getTime()).slice(0, 5), [courses]);
+  const currentUpdate = useMemo(() => [...updates].filter((item) => item.show && item.title).sort((a, b) => parseDate(b.date).getTime() - parseDate(a.date).getTime())[0], [updates]);
   const recentlyTranslated = useMemo(() => translationEvents
     .map((event) => {
       const language = languageNames[event.language] || event.language;
@@ -258,8 +286,8 @@ export default function Home() {
     })
     .filter((item): item is { course: Course; language: string; date: string } => Boolean(item))
     .sort((a, b) => parseDate(b.date).getTime() - parseDate(a.date).getTime())
-    .slice(0, 5), []);
-  const filteredCourses = useMemo(() => courses.filter((course) => matchesFilters(course, query, filters)), [query, filters]);
+    .slice(0, 5), [courses, translationEvents]);
+  const filteredCourses = useMemo(() => courses.filter((course) => matchesFilters(course, query, filters)), [courses, query, filters]);
   const activeFilters = Object.values(filters).reduce((sum, values) => sum + values.length, 0);
 
   useEffect(() => {
@@ -287,6 +315,16 @@ export default function Home() {
   }
   function clearCatalogFilters() { setQuery(""); setFilters(emptyFilters); setVisibleCount(20); }
   function resetCountry() { setCountryQuery(""); setCountryFilters(emptyFilters); setCountryVisibleCount(6); setCountryFocus("overview"); setFocusQuery(""); }
+
+  if (dataState !== "ready") {
+    return <main className="catalog-data-state" aria-live="polite">
+      <span>✺</span>
+      <h1>WeLearn Course Catalog</h1>
+      {dataState === "loading"
+        ? <p>Loading the latest catalog…</p>
+        : <><p>The catalog data could not be loaded.</p><button onClick={() => window.location.reload()}>Try again</button></>}
+    </main>;
+  }
 
   return <div className="site-shell">
     <header className="topbar">

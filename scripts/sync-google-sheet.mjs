@@ -1,5 +1,5 @@
 import { createSign } from "node:crypto";
-import { readFile, writeFile } from "node:fs/promises";
+import { writeFile } from "node:fs/promises";
 
 const spreadsheetId = "1NpAqZxoRGMU4r9iZI4L8-fYv_ELm3ugCQ_CORqShwn4";
 const secret = process.env.GOOGLE_SERVICE_ACCOUNT_JSON?.trim();
@@ -52,17 +52,13 @@ const [courseRows = [], updateRows = [], translationRows = []] = payload.valueRa
 const truthy = (value) => value === true || String(value ?? "").trim().toUpperCase() === "TRUE";
 const languageCols = { English: 6, Italian: 13, German: 15, Polish: 18, French: 20, Spanish: 24, Portuguese: 34, Czech: 37, "Hebrew & Russian": 39 };
 const countryCols = { UK: 7, Ireland: 8, Singapore: 9, "United States": 10, Netherlands: 11, Australia: 12, Italy: 14, Germany: 16, Austria: 17, Poland: 19, France: 21, Belgium: 22, Switzerland: 23, Spain: 25, Chile: 26, Colombia: 27, "Costa Rica": 28, "El Salvador": 29, Guatemala: 30, Mexico: 31, Panama: 32, Peru: 33, Brazil: 35, Portugal: 36, Czechia: 38, Israel: 40 };
-const oldCourses = JSON.parse(await readFile(new URL("../src/data/courses.json", import.meta.url), "utf8"));
-const oldByKey = new Map(oldCourses.map((course) => [String(course.key), course]));
 
 const courses = courseRows.slice(1).flatMap((row, index) => {
   if (String(row[0] ?? "").trim() !== "Published") return [];
   const key = String(row[3] ?? `row-${index + 2}`).trim() || `row-${index + 2}`;
-  const previous = oldByKey.get(key);
   const catalogGroup = String(row[5] ?? "").trim();
   return [{
     key,
-    row: index + 2,
     date: String(row[1] ?? ""),
     title: String(row[2] ?? ""),
     globalPackage: catalogGroup === "GP",
@@ -77,8 +73,8 @@ const courses = courseRows.slice(1).flatMap((row, index) => {
     quiz: truthy(row[49]),
     certificate: truthy(row[50]),
     prerequisite: String(row[51] ?? ""),
-    series: previous?.series || ({ "125": "17-video series", "164": "4-part series" }[key] ?? ""),
-    companionAssignment: previous?.companionAssignment || key === "51",
+    series: ({ "125": "17-video series", "164": "4-part series" }[key] ?? ""),
+    companionAssignment: key === "51",
   }];
 });
 
@@ -90,9 +86,16 @@ const translations = translationRows.slice(1)
   .filter((row) => row[0] && row[1] && row[2])
   .map((row) => ({ date: String(row[0]), title: String(row[1]), language: String(row[2]).trim().toUpperCase() }));
 
-await Promise.all([
-  writeFile(new URL("../src/data/courses.json", import.meta.url), `${JSON.stringify(courses)}\n`),
-  writeFile(new URL("../src/data/updates.json", import.meta.url), `${JSON.stringify(updates)}\n`),
-  writeFile(new URL("../src/data/translations.json", import.meta.url), `${JSON.stringify(translations)}\n`),
-]);
+const catalog = {
+  schemaVersion: 1,
+  generatedAt: new Date().toISOString(),
+  courses,
+  updates,
+  translations,
+};
+
+await writeFile(
+  new URL("../public/catalog.json", import.meta.url),
+  `${JSON.stringify(catalog, null, 2)}\n`,
+);
 console.log(`Synced ${courses.length} courses, ${updates.length} updates and ${translations.length} translation events.`);

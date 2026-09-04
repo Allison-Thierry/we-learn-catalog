@@ -38,6 +38,7 @@ const ranges = [
   "Courses catalog!A1:BB2000",
   "WeLearn Updates!A1:D1000",
   "Translation Log!A1:C2000",
+  "Search!A1:B2000",
 ];
 const params = new URLSearchParams();
 for (const range of ranges) params.append("ranges", range);
@@ -47,7 +48,7 @@ const sheetResponse = await fetch(`https://sheets.googleapis.com/v4/spreadsheets
 });
 if (!sheetResponse.ok) throw new Error(`Google Sheets read failed (${sheetResponse.status}).`);
 const payload = await sheetResponse.json();
-const [courseRows = [], updateRows = [], translationRows = []] = payload.valueRanges.map((range) => range.values || []);
+const [courseRows = [], updateRows = [], translationRows = [], searchRows = []] = payload.valueRanges.map((range) => range.values || []);
 
 const truthy = (value) => value === true || String(value ?? "").trim().toUpperCase() === "TRUE";
 const languageCols = { English: 6, Italian: 13, German: 15, Polish: 18, French: 20, Spanish: 24, Portuguese: 34, Czech: 37, "Hebrew & Russian": 39 };
@@ -87,13 +88,20 @@ const updates = updateRows.slice(1)
 const translations = translationRows.slice(1)
   .filter((row) => row[0] && row[1] && row[2])
   .map((row) => ({ date: String(row[0]), title: String(row[1]), language: String(row[2]).trim().toUpperCase() }));
+const searchGroups = searchRows.slice(1)
+  .map((row) => ({
+    concept: String(row[0] ?? "").trim(),
+    synonyms: String(row[1] ?? "").split(",").map((item) => item.trim()).filter(Boolean),
+  }))
+  .filter((group) => group.concept && group.synonyms.length);
 
 const catalog = {
-  schemaVersion: 1,
+  schemaVersion: 2,
   generatedAt: new Date().toISOString(),
   courses,
   updates,
   translations,
+  searchGroups,
 };
 
 const escapeHtml = (value) => String(value ?? "")
@@ -272,4 +280,4 @@ await Promise.all([
   writeFile(new URL("catalog.html", knowledgeDirectory), knowledgeHtml),
   writeFile(new URL("../public/welearn-knowledge.txt", import.meta.url), knowledgeText, "utf8"),
 ]);
-console.log(`Synced ${courses.length} courses, ${updates.length} updates and ${translations.length} translation events.`);
+console.log(`Synced ${courses.length} courses, ${updates.length} updates, ${translations.length} translation events and ${searchGroups.length} search groups.`);

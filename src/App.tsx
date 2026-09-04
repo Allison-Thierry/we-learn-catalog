@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { createSearchIndex, normalizeSearchText, smartSearch, type SearchGroup } from "./search";
 
 type PageName = "home" | "catalog" | "country" | "faq";
 type Course = {
@@ -21,9 +22,10 @@ type CatalogPayload = {
   courses: Course[];
   updates: CatalogUpdate[];
   translations: TranslationEvent[];
+  searchGroups: SearchGroup[];
 };
 
-const emptyCatalog: CatalogPayload = { schemaVersion: 1, generatedAt: "", courses: [], updates: [], translations: [] };
+const emptyCatalog: CatalogPayload = { schemaVersion: 2, generatedAt: "", courses: [], updates: [], translations: [], searchGroups: [] };
 const TODAY = new Date();
 const languageNames: Record<string, string> = {
   GB: "English", IT: "Italian", DE: "German", PL: "Polish", FR: "French",
@@ -112,7 +114,7 @@ function displayDuration(value: string) {
   return /^\d+(?:\.\d+)?$/.test(trimmed) ? `${trimmed} min` : trimmed;
 }
 function courseFamily(course: Course) {
-  const group = normalize(course.catalogGroup || "");
+  const group = normalizeSearchText(course.catalogGroup || "");
   if (group === "gp" || group === "global package") return "Global Package";
   if (group === "sales" || group === "sales content") return "Sales content";
   if (group === "specific" || group === "specific content") return "Specific content";
@@ -129,24 +131,9 @@ function localMarketLabel(course: Course) {
   const compact = labels.length > 3 ? [...labels.slice(0, 2), `+${labels.length - 2} markets`] : labels;
   return compact.join(" · ");
 }
-function normalize(value: string) {
-  return value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-}
-function searchableText(course: Course) {
-  const langs = Object.entries(course.languages).filter(([, value]) => value).map(([name]) => name);
-  const markets = Object.entries(course.countries).filter(([, value]) => value).map(([name]) => name);
-  const roleAliases = audienceList(course).flatMap((role) => ({
-    Auditors: ["auditor", "auditors"], "Supervisors / Flow Leaders": ["supervisor", "supervisors", "flow leader", "flow leaders"],
-    RTS: ["rts"], "AM / DM": ["am", "dm", "manager", "managers"], Sales: ["sales"],
-    "LMS roles": ["lms", "lms role", "lms roles"], "All Employees": ["employee", "employees", "all employees"],
-  }[role] || []));
-  return normalize([course.title, textFor(course), course.objectiveSearchText, course.category, course.audience, courseFamily(course), localMarketLabel(course), ...roleAliases, ...langs, ...markets].join(" "));
-}
-function matchesFilters(course: Course, query: string, filters: Filters) {
-  const q = normalize(query.trim());
+function matchesFilters(course: Course, filters: Filters) {
   const targets = audienceList(course);
-  return (!q || searchableText(course).includes(q))
-    && (!filters.families.length || filters.families.includes(courseFamily(course)))
+  return (!filters.families.length || filters.families.includes(courseFamily(course)))
     && (!filters.categories.length || filters.categories.includes(course.category))
     && (!filters.audiences.length || filters.audiences.some((role) => targets.includes(role)))
     && (!filters.languages.length || filters.languages.some((language) => course.languages[language]))
@@ -258,7 +245,7 @@ export default function Home() {
   const [countryFocus, setCountryFocus] = useState<"overview" | "global-unassigned" | "worth-checking">("overview");
   const [focusQuery, setFocusQuery] = useState("");
   const [openFaq, setOpenFaq] = useState(0);
-  const { courses, updates, translations: translationEvents } = catalogData;
+  const { courses, updates, translations: translationEvents, searchGroups } = catalogData;
 
   useEffect(() => {
     let active = true;
@@ -270,6 +257,7 @@ export default function Home() {
         if (!Array.isArray(payload.courses) || !Array.isArray(payload.updates) || !Array.isArray(payload.translations)) {
           throw new Error("Catalog data is incomplete.");
         }
+        if (!Array.isArray(payload.searchGroups)) payload.searchGroups = [];
         if (active) {
           setCatalogData(payload);
           setDataState("ready");
@@ -299,7 +287,23 @@ export default function Home() {
     .filter((item): item is { course: Course; language: string; date: string } => Boolean(item))
     .sort((a, b) => parseDate(b.date).getTime() - parseDate(a.date).getTime())
     .slice(0, 5), [courses, translationEvents]);
-  const filteredCourses = useMemo(() => courses.filter((course) => matchesFilters(course, query, filters)), [courses, query, filters]);
+  const searchIndex = useMemo(() => createSearchIndex(courses.map((course) => ({
+    item: course,
+    key: course.key,
+    title: course.title,
+    primary: [course.title, course.category, course.audience, courseFamily(course), localMarketLabel(course),
+      ...audienceList(course).flatMap((role) => ({
+        Auditors: ["auditor", "auditors"], "Supervisors / Flow Leaders": ["supervisor", "supervisors", "flow leader", "flow leaders"],
+        RTS: ["rts"], "AM / DM": ["am", "dm", "manager", "managers"], Sales: ["sales"],
+        "LMS roles": ["lms", "lms role", "lms roles"], "All Employees": ["employee", "employees", "all employees"],
+      }[role] || [])),
+      ...Object.entries(course.languages).filter(([, available]) => available).map(([language]) => language),
+      ...Object.entries(course.countries).filter(([, assigned]) => assigned).map(([country]) => country),
+    ].join(" "),
+    secondary: [textFor(course), course.objectiveSearchText].join(" "),
+  })), searchGroups), [courses, searchGroups]);
+  const filteredCourses = useMemo(() => smartSearch(courses, query, searchIndex, (course) => course.key)
+    .filter((course) => matchesFilters(course, filters)), [courses, query, filters, searchIndex]);
   const activeFilters = Object.values(filters).reduce((sum, values) => sum + values.length, 0);
 
   useEffect(() => {
@@ -329,8 +333,9 @@ export default function Home() {
         .map((course) => course.title),
     };
   }).filter((item) => item.count).sort((a, b) => b.count - a.count);
-  const countryCatalog = assigned.filter((course) => matchesFilters(course, countryQuery, { ...countryFilters, countries: [] }));
-  const focusItems = (countryFocus === "global-unassigned" ? globalNotAssigned : translatedNotAssigned).filter((course) => !focusQuery.trim() || searchableText(course).includes(normalize(focusQuery.trim())));
+  const countryCatalog = smartSearch(assigned, countryQuery, searchIndex, (course) => course.key)
+    .filter((course) => matchesFilters(course, { ...countryFilters, countries: [] }));
+  const focusItems = smartSearch(countryFocus === "global-unassigned" ? globalNotAssigned : translatedNotAssigned, focusQuery, searchIndex, (course) => course.key);
 
   function navigate(next: PageName) {
     setPage(next); setFiltersOpen(false); window.scrollTo({ top: 0, behavior: "smooth" });

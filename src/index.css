@@ -53,6 +53,9 @@ button { color: inherit; }
 .red-band strong { font-size: 30px; }
 .red-band span { font-size: 16px; opacity: .95; }
 .red-band small { margin-left: auto; opacity: .8; letter-spacing: .2px; }
+.last-updated { margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 3px; line-height: 1; }
+.red-band .last-updated span { font-size: 9px; font-weight: 800; letter-spacing: .8px; opacity: .78; text-transform: uppercase; }
+.last-updated time { font-size: 12px; font-weight: 700; white-space: nowrap; }
 .section-wrap { width: min(1500px, calc(100% - 68px)); margin: 0 auto; }
 .overline, .page-heading > span { display: block; margin-bottom: 12px; color: var(--red); font-size: 11px; font-weight: 800; letter-spacing: 1.8px; }
 
@@ -322,6 +325,9 @@ footer small { margin-left: auto; color: #c2d1d6; }
   .red-band { height: 60px; padding: 0 18px; }
   .red-band strong { font-size: 23px; }
   .red-band span, .red-band small { display: none; }
+  .red-band .last-updated { display: flex; }
+  .red-band .last-updated span { display: block; font-size: 8px; }
+  .last-updated time { font-size: 10px; }
   .section-wrap { width: calc(100% - 28px); }
   .hero { padding: 39px 0 46px; }
   .hero-copy h1 { font-size: 39px; letter-spacing: -1.5px; }

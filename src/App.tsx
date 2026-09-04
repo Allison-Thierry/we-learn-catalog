@@ -98,6 +98,14 @@ function prettyDate(value: string) {
   const date = parseDate(value);
   return date.getTime() ? date.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "Date unavailable";
 }
+function generatedAtLabel(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Time unavailable";
+  return `${date.toLocaleString("en-GB", {
+    day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit",
+    hourCycle: "h23", timeZone: "UTC",
+  })} UTC`;
+}
 function isNew(value: string) {
   const age = TODAY.getTime() - parseDate(value).getTime();
   return age >= 0 && age <= 30 * 24 * 60 * 60 * 1000;
@@ -363,7 +371,7 @@ export default function Home() {
       {([["home", "home", "Home"], ["catalog", "book", "Catalog"], ["country", "pin", "My Country"], ["faq", "help", "FAQ"]] as [PageName, "home" | "book" | "pin" | "help", string][]).map(([id, icon, label]) => <button key={id} className={page === id ? "active" : ""} onClick={() => navigate(id)} aria-label={label} title={label}><Icon name={icon} /><span>{label}</span></button>)}
     </aside>
     <main className="main-area">
-      <div className="red-band"><strong>{page === "home" ? "Home" : page === "catalog" ? "Catalog" : page === "country" ? "My Country" : "Help & FAQ"}</strong><small>WeLearn Course Catalog</small></div>
+      <div className="red-band"><strong>{page === "home" ? "Home" : page === "catalog" ? "Catalog" : page === "country" ? "My Country" : "Help & FAQ"}</strong><div className="last-updated"><span>Last updated</span><time dateTime={catalogData.generatedAt}>{generatedAtLabel(catalogData.generatedAt)}</time></div></div>
 
       {page === "home" && <>
         <section className="hero section-wrap">

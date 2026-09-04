@@ -175,6 +175,7 @@ function CourseCard({ course, onOpen, translationLanguage, translationDate }: { 
 
 function CourseList({ items, onOpen, limit }: { items: Course[]; onOpen: (course: Course) => void; limit?: number }) {
   const [sort, setSort] = useState<{ key: "title" | "category"; direction: "asc" | "desc" } | null>(null);
+  const [expandedLanguageRows, setExpandedLanguageRows] = useState<string[]>([]);
   const sortedItems = useMemo(() => {
     if (!sort) return items;
     return [...items].sort((a, b) => {
@@ -193,17 +194,25 @@ function CourseList({ items, onOpen, limit }: { items: Course[]; onOpen: (course
     if (!sort || sort.key !== key) return "↕";
     return sort.direction === "asc" ? "↑" : "↓";
   }
+  function toggleLanguages(courseKey: string) {
+    setExpandedLanguageRows((current) => current.includes(courseKey)
+      ? current.filter((key) => key !== courseKey)
+      : [...current, courseKey]);
+  }
   const visibleItems = typeof limit === "number" ? sortedItems.slice(0, limit) : sortedItems;
   return <div className="lesson-list">
     <div className="lesson-list-head"><button onClick={() => cycleSort("title")} aria-label="Sort lessons by title">Lesson <b>{sortMark("title")}</b></button><button onClick={() => cycleSort("category")} aria-label="Sort lessons by category">Category <b>{sortMark("category")}</b></button><span>Target audience</span><span>Description</span><span>Translations</span><span /></div>
     {visibleItems.map((course) => {
       const langs = Object.entries(course.languages).filter(([, value]) => value).map(([name]) => name);
+      const canExpandInline = langs.length > 3 && langs.length <= 6;
+      const languagesExpanded = canExpandInline && expandedLanguageRows.includes(course.key);
+      const visibleLanguages = languagesExpanded ? langs : langs.slice(0, 3);
       return <article className="lesson-row" key={course.key}>
         <div className="lesson-title"><span className={`mini-category tone-${(categoryStyle[course.category] || { tone: "navy" }).tone}`}>{(categoryStyle[course.category] || { icon: "•" }).icon}</span><span><span className="title-tags"><span className={`package-tag family-${courseFamily(course).replaceAll(" ", "-").toLowerCase()}`}>{courseFamily(course)}</span>{localMarketLabel(course) && <span className="market-tag">{localMarketLabel(course)}</span>}</span><strong>{course.title}</strong><small>{prettyDate(course.date)} · {displayDuration(course.duration)}</small></span></div>
         <div className="lesson-category" data-label="Category">{course.category}</div>
         <div className="lesson-audience" data-label="Target audience">{audienceList(course).map((role) => <span key={role}>{role}</span>)}</div>
         <p className="lesson-description" data-label="Description">{textFor(course)}</p>
-        <div className="lesson-languages" data-label="Translations">{langs.slice(0, 3).map((language) => <span key={language}>{language}</span>)}{langs.length > 3 && <b>+{langs.length - 3}</b>}{!langs.length && <em>—</em>}</div>
+        <div className="lesson-languages" data-label="Translations">{visibleLanguages.map((language) => <span key={language}>{language}</span>)}{canExpandInline && <button className="language-more" onClick={() => toggleLanguages(course.key)} aria-expanded={languagesExpanded} aria-label={`${languagesExpanded ? "Show fewer" : "Show all"} translations for ${course.title}`}>{languagesExpanded ? "Show less" : `+${langs.length - 3}`}</button>}{langs.length > 6 && <button className="language-more view-all-languages" onClick={() => onOpen(course)} aria-label={`View all translations for ${course.title}`}>View more</button>}{!langs.length && <em>—</em>}</div>
         <button className="row-action" onClick={() => onOpen(course)} aria-label={`View ${course.title}`}>View <span>›</span></button>
       </article>;
     })}
@@ -228,8 +237,8 @@ function FilterPanel({ filters, setFilters, categories, languages, includeCountr
 function PageHeading({ kicker, title, copy }: { kicker?: string; title: string; copy: string }) {
   return <div className="page-heading">{kicker && <span>{kicker}</span>}<h1>{title}</h1><p>{copy}</p></div>;
 }
-function Donut({ value, label }: { value: number; label: string }) {
-  return <div className="donut-card"><div className="donut" style={{ background: `conic-gradient(var(--red) 0 ${value}%, #e7eaec ${value}% 100%)` }}><span>{value}%</span></div><div><strong>{label}</strong><p>of all current Global Package lessons</p></div></div>;
+function Donut({ value, label, detail }: { value: number; label: string; detail: string }) {
+  return <div className="donut-card tooltip-anchor" tabIndex={0} aria-label={`${label}: ${value}%. ${detail}`}><div className="donut" style={{ background: `conic-gradient(var(--red) 0 ${value}%, #e7eaec ${value}% 100%)` }}><span>{value}%</span></div><div className="donut-copy"><strong>{label}</strong><p>of all current Global Package lessons</p></div><div className="hover-tooltip donut-tooltip" role="tooltip"><strong>{detail}</strong></div></div>;
 }
 
 export default function Home() {
@@ -309,7 +318,17 @@ export default function Home() {
   const globalTranslated = selectedCountry ? globalCourses.filter((course) => requirements.every((language) => course.languages[language])) : [];
   const assignmentPct = globalCourses.length ? Math.round(globalAssigned.length / globalCourses.length * 100) : 0;
   const translationPct = globalCourses.length ? Math.round(globalTranslated.length / globalCourses.length * 100) : 0;
-  const categoryCounts = categories.map((category) => ({ category, count: assigned.filter((course) => course.category === category).length })).filter((item) => item.count).sort((a, b) => b.count - a.count);
+  const categoryCounts = categories.map((category) => {
+    const categoryCourses = assigned.filter((course) => course.category === category);
+    return {
+      category,
+      count: categoryCourses.length,
+      examples: [...categoryCourses]
+        .sort((a, b) => parseDate(b.date).getTime() - parseDate(a.date).getTime())
+        .slice(0, 5)
+        .map((course) => course.title),
+    };
+  }).filter((item) => item.count).sort((a, b) => b.count - a.count);
   const countryCatalog = assigned.filter((course) => matchesFilters(course, countryQuery, { ...countryFilters, countries: [] }));
   const focusItems = (countryFocus === "global-unassigned" ? globalNotAssigned : translatedNotAssigned).filter((course) => !focusQuery.trim() || searchableText(course).includes(normalize(focusQuery.trim())));
 
@@ -339,7 +358,7 @@ export default function Home() {
       {([["home", "home", "Home"], ["catalog", "book", "Catalog"], ["country", "pin", "My Country"], ["faq", "help", "FAQ"]] as [PageName, "home" | "book" | "pin" | "help", string][]).map(([id, icon, label]) => <button key={id} className={page === id ? "active" : ""} onClick={() => navigate(id)} aria-label={label} title={label}><Icon name={icon} /><span>{label}</span></button>)}
     </aside>
     <main className="main-area">
-      <div className="red-band"><strong>{page === "home" ? "Home" : page === "catalog" ? "Catalog" : page === "country" ? "My Country" : "Help & FAQ"}</strong><small>WeLearn Course Catalog · Prototype V1</small></div>
+      <div className="red-band"><strong>{page === "home" ? "Home" : page === "catalog" ? "Catalog" : page === "country" ? "My Country" : "Help & FAQ"}</strong><small>WeLearn Course Catalog</small></div>
 
       {page === "home" && <>
         <section className="hero section-wrap">
@@ -391,8 +410,8 @@ export default function Home() {
             <button className="stat-action" onClick={() => setCountryFocus("global-unassigned")}><span className="stat-icon teal">!</span><strong>{globalNotAssigned.length}</strong><p>Global Package lessons not assigned</p><em>View list ›</em></button>
           </div>
           <div className="country-insights">
-            <section><div className="insight-heading"><h2>Global Package coverage</h2><p>Percentages for {selectedCountry} only.</p></div><div className="donut-grid"><Donut value={assignmentPct} label="Assigned" /><Donut value={translationPct} label="Translated" /></div></section>
-            <section><div className="insight-heading"><h2>Category overview</h2><p>Assigned lessons by category.</p></div><div className="bar-list">{categoryCounts.slice(0, 6).map(({ category, count }) => <div key={category}><span>{category}</span><div><i style={{ width: `${Math.max(7, Math.round(count / Math.max(...categoryCounts.map((item) => item.count)) * 100))}%` }} /></div><b>{count}</b></div>)}</div></section>
+            <section><div className="insight-heading"><h2>Global Package coverage</h2><p>Percentages for {selectedCountry} only.</p></div><div className="donut-grid"><Donut value={assignmentPct} label="Assigned" detail={`${globalAssigned.length} of ${globalCourses.length} Global Package lessons are assigned in ${selectedCountry}.`} /><Donut value={translationPct} label="Translated" detail={`${globalTranslated.length} of ${globalCourses.length} Global Package lessons have all required translations for ${selectedCountry}.`} /></div></section>
+            <section><div className="insight-heading"><h2>Category overview</h2><p>Assigned lessons by category.</p></div><div className="bar-list">{categoryCounts.slice(0, 6).map(({ category, count, examples }) => <div className="category-bar-row tooltip-anchor" key={category} tabIndex={0} aria-label={`${category}: ${count} assigned lesson${count === 1 ? "" : "s"}. Examples: ${examples.join(", ")}.`}><span>{category}</span><div className="category-bar-track"><i style={{ width: `${Math.max(7, Math.round(count / Math.max(...categoryCounts.map((item) => item.count)) * 100))}%` }} /></div><b>{count}</b><div className="hover-tooltip category-tooltip" role="tooltip"><strong>{count} assigned lesson{count === 1 ? "" : "s"}</strong><span>Examples</span><ul>{examples.map((title) => <li key={title}>{title}</li>)}</ul>{count > examples.length && <small>+{count - examples.length} more</small>}</div></div>)}</div></section>
             <section className="worth-summary"><span className="worth-icon">!</span><small>TRANSLATION RECORDED</small><strong>{translatedNotAssigned.length}</strong><h2>Worth checking</h2><p>Lessons with the required translation but no recorded assignment for {selectedCountry}.</p><button onClick={() => setCountryFocus("worth-checking")}>View list <span>›</span></button></section>
           </div>
           <section className="country-catalog">
@@ -407,7 +426,7 @@ export default function Home() {
 
       {page === "faq" && <section className="section-wrap faq-page"><PageHeading title="Help & FAQ" copy="Information for discovering, requesting and adopting WeLearn content." /><div className="faq-layout"><div className="faq-list">{faqItems.map(([question, answer], index) => <div className={`faq-item ${openFaq === index ? "open" : ""}`} key={question}><button onClick={() => setOpenFaq(openFaq === index ? -1 : index)}><span>{String(index + 1).padStart(2, "0")}</span><strong>{question}</strong><b>{openFaq === index ? "−" : "+"}</b></button>{openFaq === index && <p>{answer}</p>}</div>)}</div><aside className="contact-stack" aria-label="WeLearn support contacts"><section className="support-card technical-support"><span className="support-icon"><Icon name="help" /></span><small>TECHNICAL SUPPORT</small><h2>Technical issue</h2><p>If you have a technical problem with WeLearn, send a ticket to LMS Support.</p><a href="mailto:lms_support@rgis.com?subject=WeLearn%20technical%20issue"><Icon name="mail" />Email LMS Support</a></section><section className="support-card request-support"><span className="support-icon"><Icon name="book" /></span><small>LOCAL COURSE REQUEST</small><h2>Request a local lesson</h2><p>Use the request form if you need a new local lesson for your country.</p><a href="https://rgiscom-my.sharepoint.com/personal/althierry_rgis_com/_layouts/15/listforms.aspx?cid=NGQ5N2MwYzgtYWMyMy00ZGQ3LTg0NDQtYTEwMmQyODk3OTI3&nav=NjM1MDY4NWItYzAxNC00MjY4LTllNTAtM2VlN2JmZTNiNjNi" target="_blank" rel="noreferrer">Open request form <span>↗</span></a></section><section className="support-card allison-support"><span className="support-icon"><Icon name="mail" /></span><small>QUESTIONS & SUGGESTIONS</small><h2>Contact Allison</h2><p>For any question or suggestion about WeLearn or its lessons.</p><a href="mailto:althierry@rgis.com?subject=WeLearn%20question%20or%20suggestion"><Icon name="mail" />Email Allison</a></section></aside></div></section>}
     </main>
-    <footer><span>✺ WE<span>LEARN</span></span><p>Course Catalog · Internal prototype</p><small>© 2026 RGIS</small></footer>
+    <footer><span>✺ WE<span>LEARN</span></span><p>Course Catalog</p><small>© 2026 RGIS</small></footer>
 
     {selectedCourse && <div className="modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && setSelectedCourse(null)}><article className="course-modal" role="dialog" aria-modal="true" aria-labelledby="course-modal-title">
       <button className="modal-close" onClick={() => setSelectedCourse(null)} aria-label="Close details"><Icon name="close" /></button>

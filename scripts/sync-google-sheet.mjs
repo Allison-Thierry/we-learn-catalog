@@ -57,6 +57,8 @@ const courses = courseRows.slice(1).flatMap((row, index) => {
   if (String(row[0] ?? "").trim() !== "Published") return [];
   const key = String(row[3] ?? `row-${index + 2}`).trim() || `row-${index + 2}`;
   const catalogGroup = String(row[5] ?? "").trim();
+  const catalogDescription = String(row[53] ?? "").trim();
+  const lessonDescription = String(row[45] ?? "").trim();
   return [{
     key,
     date: String(row[1] ?? ""),
@@ -67,7 +69,7 @@ const courses = courseRows.slice(1).flatMap((row, index) => {
     countries: Object.fromEntries(Object.entries(countryCols).map(([name, column]) => [name, truthy(row[column])])),
     category: String(row[41] ?? ""),
     audience: String(row[42] ?? ""),
-    publicDescription: String(row[53] ?? ""),
+    publicDescription: catalogDescription || lessonDescription,
     objectiveSearchText: String(row[47] ?? ""),
     duration: String(row[46] ?? ""),
     quiz: truthy(row[49]),

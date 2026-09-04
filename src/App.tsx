@@ -277,7 +277,10 @@ export default function Home() {
   const categories = useMemo(() => [...new Set(courses.map((course) => course.category))].sort(), [courses]);
   const languages = useMemo(() => Object.keys(courses[0]?.languages || {}), [courses]);
   const latestCourses = useMemo(() => [...courses].sort((a, b) => parseDate(b.date).getTime() - parseDate(a.date).getTime()).slice(0, 5), [courses]);
-  const currentUpdate = useMemo(() => [...updates].filter((item) => item.show && item.title).sort((a, b) => parseDate(b.date).getTime() - parseDate(a.date).getTime())[0], [updates]);
+  const currentUpdates = useMemo(() => [...updates]
+    .filter((item) => item.show && item.title)
+    .sort((a, b) => parseDate(b.date).getTime() - parseDate(a.date).getTime())
+    .slice(0, 3), [updates]);
   const recentlyTranslated = useMemo(() => translationEvents
     .map((event) => {
       const language = languageNames[event.language] || event.language;
@@ -342,7 +345,7 @@ export default function Home() {
         <section className="hero section-wrap">
           <div className="hero-copy"><h1>WeLearn Course Catalog</h1><p>Browse published lessons, check available translations and see what is currently assigned in each country.</p>
             <div className="hero-search"><Icon name="search" /><input value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => event.key === "Enter" && navigate("catalog")} placeholder="Search by title, role, topic or language" /><button onClick={() => navigate("catalog")}>Search</button></div>
-            <div className="catalog-update"><span>i</span><div><small>WELEARN UPDATES{currentUpdate?.date ? ` · ${prettyDate(currentUpdate.date)}` : ""}</small><strong>{currentUpdate?.title || "No current update"}</strong><p>{currentUpdate?.message || "Platform news, rollout notes and other WeLearn updates will appear here when needed."}</p></div></div>
+            <div className="catalog-update"><span>i</span><div><small>WELEARN UPDATES</small>{currentUpdates.length ? <div className="catalog-update-list">{currentUpdates.map((update, index) => <article className="catalog-update-item" key={`${update.date}-${update.title}-${index}`}><strong>{update.title}</strong>{update.date && <time>{prettyDate(update.date)}</time>}<p>{update.message}</p></article>)}</div> : <div className="catalog-update-empty"><strong>No current update</strong><p>Platform news, rollout notes and other WeLearn updates will appear here when needed.</p></div>}</div></div>
           </div>
           <div className="hero-panel">
             <div className="hero-stat primary"><strong>{courses.length}</strong><span>published lessons</span></div>
